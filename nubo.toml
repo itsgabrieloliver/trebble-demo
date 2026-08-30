@@ -1,0 +1,23 @@
+version = 1
+
+[project]
+name = "studio-6a8f14cf"
+region = "us-east-01"
+
+[[frames]]
+name = "studio-6a8f14cf"
+stack = "sveltekit"
+port = 3000
+replicas = 1
+
+[[frames]]
+name = "music-social-db"
+kind = "database"
+engine = "mongodb"
+storage_gb = 1
+inject_into = "studio-6a8f14cf"
+inject_as = "DATABASE_URL"
+
+[deploy]
+prune = false
+preview_deploys = false
