@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
-import { DbNotReadyError, insertShare, listShares, publicShare } from '$lib/server/db.js';
+import { DbNotReadyError, findMedia, insertShare, listShares, publicShare } from '$lib/server/db.js';
 import { readJson, requireUser } from '$lib/server/guard.js';
+import { normalizeEffect } from '$lib/effects.js';
 
 export async function GET({ locals }) {
 	const { user, error } = requireUser(locals);
@@ -36,6 +37,25 @@ export async function POST({ locals, request }) {
 		return json({ error: 'A track uri, title and artist are required to share.' }, { status: 400 });
 	}
 
+	// Optional media: must reference an upload that actually exists, and the
+	// effect id must be one of the known presets (anything else becomes none).
+	let mediaId = null;
+	let mediaType = null;
+	let effect = null;
+	if (body.mediaId) {
+		mediaId = String(body.mediaId).trim();
+		try {
+			const media = await findMedia(mediaId);
+			if (!media) return json({ error: 'That upload no longer exists.' }, { status: 400 });
+			mediaType = media.contentType.startsWith('video/') ? 'video' : 'image';
+		} catch (err) {
+			if (err instanceof DbNotReadyError) return json({ error: err.message }, { status: 503 });
+			console.error('Share media check error:', err);
+			return json({ error: 'Could not verify that upload right now.' }, { status: 500 });
+		}
+		effect = normalizeEffect(String(body.effect || 'none'));
+	}
+
 	const share = {
 		id: randomUUID(),
 		userId: user.id,
@@ -43,6 +63,9 @@ export async function POST({ locals, request }) {
 		avatar: `https://i.pravatar.cc/80?u=${encodeURIComponent(user.email)}`,
 		track: { uri, title, artist, art },
 		caption,
+		mediaId,
+		mediaType,
+		effect,
 		createdAt: new Date().toISOString(),
 		comments: [],
 		reactedUserIds: []

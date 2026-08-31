@@ -8,6 +8,7 @@ let mongoClient = null;
 let usersCollection = null;
 let recsCollection = null;
 let sharesCollection = null;
+let mediaBucket = null;
 let mongoReady = false;
 
 // DATABASE_URL is read straight from the environment with no hardcoded
@@ -28,7 +29,8 @@ const memory = {
 	users: new Map(), // email -> user
 	usersById: new Map(),
 	recs: [],
-	shares: []
+	shares: [],
+	media: new Map() // id -> { buffer, contentType, length }
 };
 
 export function storageLabel() {
@@ -51,13 +53,15 @@ export async function initStorage() {
 
 	dbState = 'connecting';
 	try {
-		const { MongoClient } = await import('mongodb');
+		const { MongoClient, GridFSBucket } = await import('mongodb');
 		mongoClient = new MongoClient(env.DATABASE_URL, { serverSelectionTimeoutMS: 5000 });
 		await mongoClient.connect();
 		const db = mongoClient.db();
 		usersCollection = db.collection('users');
 		recsCollection = db.collection('recommendations');
 		sharesCollection = db.collection('shares');
+		// New bucket for post media only; existing collections stay untouched.
+		mediaBucket = new GridFSBucket(db, { bucketName: 'postMedia' });
 		await usersCollection.createIndex({ email: 1 }, { unique: true });
 		await sharesCollection.createIndex({ createdAt: -1 });
 		mongoReady = true;
@@ -71,6 +75,7 @@ export async function initStorage() {
 		usersCollection = null;
 		recsCollection = null;
 		sharesCollection = null;
+		mediaBucket = null;
 		// Retry in the background so a transient network blip recovers on its
 		// own without needing a redeploy or restart.
 		setTimeout(() => {
@@ -228,6 +233,52 @@ export async function deleteShareById(id, userId) {
 	return { ok: true };
 }
 
+// Media (post uploads) -------------------------------------------------------
+// Stored in GridFS bucket `postMedia` when MongoDB is configured, or an
+// in-memory map otherwise. The app-level id is the GridFS filename, so we
+// never expose raw ObjectIds and the memory fallback uses the same shape.
+
+export async function saveMedia({ id, buffer, contentType }) {
+	if (dbConfigured) {
+		ensureDbAvailable();
+		await new Promise((resolve, reject) => {
+			const upload = mediaBucket.openUploadStream(id, {
+				contentType,
+				metadata: { contentType }
+			});
+			upload.on('error', reject);
+			upload.on('finish', resolve);
+			upload.end(buffer);
+		});
+		return { id, contentType, length: buffer.length };
+	}
+	memory.media.set(id, { buffer, contentType, length: buffer.length });
+	return { id, contentType, length: buffer.length };
+}
+
+export async function findMedia(id) {
+	if (dbConfigured) {
+		ensureDbAvailable();
+		const file = await mediaBucket.find({ filename: id }).next();
+		if (!file) return null;
+		return {
+			id,
+			contentType: file.contentType || file.metadata?.contentType || 'application/octet-stream',
+			length: file.length,
+			// Lazily opened Node readable stream over the GridFS chunks.
+			stream: () => mediaBucket.openDownloadStreamByName(id)
+		};
+	}
+	const entry = memory.media.get(id);
+	if (!entry) return null;
+	return {
+		id,
+		contentType: entry.contentType,
+		length: entry.length,
+		buffer: entry.buffer
+	};
+}
+
 export function publicShare(share, currentUserId) {
 	return {
 		id: share.id,
@@ -236,6 +287,15 @@ export function publicShare(share, currentUserId) {
 		avatar: share.avatar,
 		track: share.track,
 		caption: share.caption || '',
+		// Media is optional and new; old share documents simply have none and
+		// render exactly as they always did.
+		media: share.mediaId
+			? {
+					url: `/api/media/${encodeURIComponent(share.mediaId)}`,
+					type: share.mediaType === 'video' ? 'video' : 'image',
+					effect: share.effect || 'none'
+				}
+			: null,
 		createdAt: share.createdAt,
 		comments: (share.comments || []).map((c) => ({
 			userId: c.userId,

@@ -9,6 +9,7 @@ const ROUTES = [
 	'/',
 	'/login',
 	'/dashboard',
+	'/dashboard/overview',
 	'/dashboard/library',
 	'/dashboard/playlists',
 	'/dashboard/feed',
@@ -16,7 +17,8 @@ const ROUTES = [
 	'/dashboard/profile',
 	'/api/auth/me',
 	'/api/tracks',
-	'/api/feed'
+	'/api/feed',
+	'/api/media/00000000-0000-0000-0000-000000000000'
 ];
 
 const server = spawn('node', ['build'], {

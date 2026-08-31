@@ -11,10 +11,10 @@
 	let { data, children } = $props();
 
 	const nav = [
-		{ href: '/dashboard', label: 'Overview', icon: 'home' },
+		{ href: '/dashboard/feed', label: 'Feed', icon: 'feed' },
+		{ href: '/dashboard/overview', label: 'Listening', icon: 'home' },
 		{ href: '/dashboard/library', label: 'Library', icon: 'library' },
 		{ href: '/dashboard/playlists', label: 'Playlists', icon: 'playlists' },
-		{ href: '/dashboard/feed', label: 'Feed', icon: 'feed' },
 		{ href: '/dashboard/activity', label: 'Activity', icon: 'activity' },
 		{ href: '/dashboard/profile', label: 'Profile', icon: 'profile' }
 	];
@@ -22,7 +22,7 @@
 	const path = $derived($page.url.pathname.replace(/\/$/, '') || '/dashboard');
 
 	function isActive(href) {
-		return href === '/dashboard' ? path === '/dashboard' : path.startsWith(href);
+		return path.startsWith(href);
 	}
 
 	onMount(() => {
@@ -80,7 +80,8 @@
 		display: grid;
 		grid-template-columns: var(--rail-w) minmax(0, 1fr);
 		min-height: 100vh;
-		padding-bottom: var(--player-h);
+		/* Room for the compact now-playing pill docked bottom-right */
+		padding-bottom: var(--space-12);
 	}
 
 	.rail {
