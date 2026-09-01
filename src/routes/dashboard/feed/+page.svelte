@@ -29,6 +29,11 @@
 	let tracks = $state(null);
 	let tracksLoading = $state(false);
 	let trackQuery = $state('');
+	// Remote Spotify search results for the current query (null = not searched yet)
+	let searchResults = $state(null);
+	let searching = $state(false);
+	let searchError = $state(null);
+	let searchTimer = null;
 	let pickedTrack = $state(null);
 	let mediaFile = $state(null);
 	let mediaUrl = $state(null);
@@ -53,20 +58,17 @@
 		loadTracks();
 		return () => {
 			if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+			if (searchTimer) clearTimeout(searchTimer);
 		};
 	});
 
+	// With no query the composer suggests the listener's own top tracks; as soon
+	// as they type, results come from a Spotify catalogue search instead of only
+	// what is already in their library.
 	const trackMatches = $derived.by(() => {
-		if (!tracks) return [];
-		const q = trackQuery.trim().toLowerCase();
-		if (!q) return tracks.slice(0, 5);
-		return tracks
-			.filter(
-				(t) =>
-					String(t.title || '').toLowerCase().includes(q) ||
-					String(t.artist || '').toLowerCase().includes(q)
-			)
-			.slice(0, 6);
+		const q = trackQuery.trim();
+		if (!q) return (tracks || []).slice(0, 5);
+		return (searchResults || []).slice(0, 8);
 	});
 
 	async function loadTracks() {
@@ -82,9 +84,41 @@
 		}
 	}
 
+	// Debounced catalogue search: one request 300ms after typing stops.
+	function onQueryInput() {
+		searchError = null;
+		if (searchTimer) clearTimeout(searchTimer);
+		const q = trackQuery.trim();
+		if (!q) {
+			searchResults = null;
+			searching = false;
+			return;
+		}
+		searching = true;
+		searchTimer = setTimeout(() => runSearch(q), 300);
+	}
+
+	async function runSearch(q) {
+		try {
+			const res = await api(`/api/tracks?q=${encodeURIComponent(q)}`);
+			// Ignore a response that arrived after the listener typed something else.
+			if (trackQuery.trim() !== q) return;
+			searchResults = res.tracks || [];
+		} catch (err) {
+			if (trackQuery.trim() !== q) return;
+			searchResults = [];
+			searchError = err.message || 'Track search is unavailable right now.';
+		} finally {
+			if (trackQuery.trim() === q) searching = false;
+		}
+	}
+
 	function pick(track) {
 		pickedTrack = track;
 		trackQuery = '';
+		searchResults = null;
+		searching = false;
+		searchError = null;
 	}
 
 	function clearMedia(resetError = true) {
@@ -134,9 +168,13 @@
 		notice = null;
 		try {
 			let mediaId = null;
+			// A caption-and-track post never touches /api/media: the upload route
+			// is only called when a real file is attached.
 			if (mediaFile) {
 				const form = new FormData();
-				form.append('file', mediaFile);
+				// Field name must match what /api/media reads. Content-Type is left
+				// unset on purpose so the browser adds the multipart boundary.
+				form.append('file', mediaFile, mediaFile.name || 'upload');
 				const res = await fetch('/api/media', {
 					method: 'POST',
 					credentials: 'same-origin',
@@ -144,7 +182,10 @@
 				});
 				const body = await res.json().catch(() => null);
 				if (!res.ok) throw new Error(body?.error || 'Could not upload that file.');
+				if (!body?.mediaId) throw new Error('The upload finished but returned no media id.');
 				mediaId = body.mediaId;
+				// Trust the server's classification of the stored file.
+				if (body.mediaType) mediaType = body.mediaType;
 			}
 			const res = await api('/api/shares', {
 				method: 'POST',
@@ -269,12 +310,16 @@
 					<input
 						class="input"
 						type="search"
-						placeholder="Search your top tracks by title or artist"
+						placeholder="Search every track on Spotify by title or artist"
 						bind:value={trackQuery}
+						oninput={onQueryInput}
 						onfocus={loadTracks}
 					/>
 				</label>
-				{#if tracksLoading}
+				{#if searchError}
+					<p class="error-note" role="alert">{searchError}</p>
+				{/if}
+				{#if searching || (tracksLoading && !trackQuery.trim())}
 					<Skeleton rows={2} />
 				{:else if trackMatches.length}
 					<ul class="matches">
@@ -292,9 +337,11 @@
 						{/each}
 					</ul>
 				{:else if trackQuery.trim()}
-					<p class="meta">No track matches that. Try another title or artist.</p>
+					<p class="meta">Nothing on Spotify matched that. Try another title or artist.</p>
 				{:else}
-					<p class="meta">Every post is built around a track. Search above to pick one.</p>
+					<p class="meta">
+						Every post is built around a track. Search the whole Spotify catalogue above to pick one.
+					</p>
 				{/if}
 			</div>
 		{:else}

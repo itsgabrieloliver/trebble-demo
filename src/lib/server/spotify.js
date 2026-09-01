@@ -183,6 +183,7 @@ export function mapSpotifyTracks(items) {
 			uri: t.uri,
 			title: t.name,
 			artist: (t.artists || []).map((a) => a.name).join(', '),
+			album: t.album?.name || null,
 			art: t.album?.images?.[0]?.url || 'https://picsum.photos/seed/spotify/300/300',
 			durationMs: t.duration_ms || 0,
 			previewUrl: t.preview_url || null
@@ -226,6 +227,90 @@ export async function fetchSpotifyTopTracks(user) {
 	if (!apiRes.ok) throw await spotifyApiError(apiRes, 'fetchSpotifyTopTracks');
 	const data = await apiRes.json();
 	return mapSpotifyTracks(data.items);
+}
+
+// Client-credentials token, cached in memory until shortly before it expires.
+// Used for catalogue search when the listener has not connected their own
+// account, so search still covers all of Spotify rather than nothing.
+let appToken = null;
+
+async function getAppToken() {
+	const cfg = spotifyEnv();
+	if (!cfg) return null;
+	if (appToken && appToken.expiresAt > Date.now() + 30000) return appToken.accessToken;
+
+	const basicAuth = Buffer.from(`${cfg.clientId}:${cfg.clientSecret}`).toString('base64');
+	const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/x-www-form-urlencoded',
+			authorization: `Basic ${basicAuth}`
+		},
+		body: new URLSearchParams({ grant_type: 'client_credentials' })
+	});
+	const tokenData = await tokenRes.json().catch(() => null);
+	if (!tokenRes.ok || !tokenData?.access_token) {
+		console.error('Spotify client-credentials token request failed:', JSON.stringify(tokenData));
+		appToken = null;
+		return null;
+	}
+	appToken = {
+		accessToken: tokenData.access_token,
+		expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000
+	};
+	return appToken.accessToken;
+}
+
+// Full catalogue search (type=track). Prefers the listener's own token so
+// results respect their market, and falls back to an app token. Returns [] when
+// there is nothing usable rather than throwing, so search never 500s.
+export async function searchSpotifyTracks(user, query, limit = 12) {
+	const q = String(query || '').trim();
+	if (!q) return [];
+
+	let token = null;
+	let usedUserToken = false;
+	try {
+		const spotify = user ? await getFreshSpotifyToken(user) : null;
+		if (spotify?.accessToken) {
+			token = spotify.accessToken;
+			usedUserToken = true;
+		}
+	} catch (err) {
+		console.warn('Spotify search: user token refresh failed, trying app token:', err.message);
+	}
+	if (!token) token = await getAppToken();
+	if (!token) return [];
+
+	const url =
+		`https://api.spotify.com/v1/search?type=track&limit=${Math.min(50, Math.max(1, limit))}` +
+		`&q=${encodeURIComponent(q)}` +
+		(usedUserToken ? '&market=from_token' : '');
+
+	let apiRes = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+
+	// A stale user token should not break search: retry once on the app token.
+	if (apiRes.status === 401 && usedUserToken) {
+		const fallback = await getAppToken();
+		if (!fallback) return [];
+		const retryUrl = `https://api.spotify.com/v1/search?type=track&limit=${Math.min(50, Math.max(1, limit))}&q=${encodeURIComponent(q)}`;
+		apiRes = await fetch(retryUrl, { headers: { authorization: `Bearer ${fallback}` } });
+	}
+
+	if (!apiRes.ok) {
+		const body = await apiRes.text().catch(() => '<unreadable body>');
+		console.error(`Spotify track search failed (status ${apiRes.status}): ${body}`);
+		return [];
+	}
+
+	const data = await apiRes.json().catch(() => null);
+	return mapSpotifyTracks(data?.tracks?.items).map((t) => ({
+		...t,
+		// The composer and TrackRow read `art`; keep an explicit album name and
+		// artwork alias so other callers have the full shape too.
+		album: t.album || null,
+		artwork: t.art
+	}));
 }
 
 export async function fetchSpotifyPlaylists(user) {

@@ -23,14 +23,52 @@ export async function POST({ locals, request }) {
 		return json({ error: 'That file is too large to upload.' }, { status: 413 });
 	}
 
-	let file;
-	try {
-		const form = await request.formData();
-		file = form.get('file');
-	} catch {
-		return json({ error: 'Expected a multipart form with a file field.' }, { status: 400 });
+	// Only a multipart body can carry a file. Say so precisely rather than
+	// blaming the client for a parse failure that was really something else.
+	const bodyType = String(request.headers.get('content-type') || '').toLowerCase();
+	if (!bodyType.includes('multipart/form-data')) {
+		return json(
+			{
+				error:
+					'Uploads must be sent as multipart form data with the file attached. Received content type: ' +
+					(bodyType || 'none') +
+					'.'
+			},
+			{ status: 400 }
+		);
 	}
-	if (!file || typeof file.arrayBuffer !== 'function') {
+
+	let form;
+	try {
+		form = await request.formData();
+	} catch (err) {
+		console.error('Media upload form parse failed:', err?.message || err);
+		return json(
+			{ error: 'That upload could not be read. Attach the file again and retry.' },
+			{ status: 400 }
+		);
+	}
+
+	// Accept the field name the composer sends plus the obvious aliases, so a
+	// mismatch in one caller can never turn a valid upload into a 400.
+	let file = null;
+	for (const name of ['file', 'media', 'upload', 'image', 'video']) {
+		const candidate = form.get(name);
+		if (candidate && typeof candidate.arrayBuffer === 'function') {
+			file = candidate;
+			break;
+		}
+	}
+	if (!file) {
+		// Last resort: take the first file-like entry whatever it is named.
+		for (const [, value] of form.entries()) {
+			if (value && typeof value.arrayBuffer === 'function') {
+				file = value;
+				break;
+			}
+		}
+	}
+	if (!file) {
 		return json({ error: 'No file attached. Add one under the "file" field.' }, { status: 400 });
 	}
 
