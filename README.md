@@ -1,4 +1,4 @@
-# Studio 6A
+# Trebble
 
 A music social app: connect Spotify, browse your top tracks and playlists, share
 tracks with other listeners, and react and comment on what they share.

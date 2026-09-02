@@ -273,7 +273,7 @@
 	}
 </script>
 
-<svelte:head><title>Feed, Studio 6A</title></svelte:head>
+<svelte:head><title>Feed, Trebble</title></svelte:head>
 
 <header class="page-head">
 	<div class="head-row">
@@ -454,7 +454,7 @@
 						onclick={() => playShare(share)}
 					>
 						<img
-							src={share.track.art || 'https://picsum.photos/seed/studio6a/300/300'}
+							src={share.track.art || 'https://picsum.photos/seed/trebble/300/300'}
 							alt=""
 							loading="lazy"
 						/>

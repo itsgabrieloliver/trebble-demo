@@ -28,7 +28,7 @@
 	}
 </script>
 
-<svelte:head><title>Listening, Studio 6A</title></svelte:head>
+<svelte:head><title>Listening, Trebble</title></svelte:head>
 
 <header class="page-head">
 	<div class="head-row">

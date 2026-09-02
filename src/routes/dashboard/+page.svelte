@@ -31,7 +31,7 @@
 	}
 </script>
 
-<svelte:head><title>Overview, Studio 6A</title></svelte:head>
+<svelte:head><title>Overview, Trebble</title></svelte:head>
 
 <header class="page-head">
 	<div class="head-row">

@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>{$page.status} · Studio 6A</title>
+	<title>{$page.status} · Trebble</title>
 </svelte:head>
 
 <main class="wrap">

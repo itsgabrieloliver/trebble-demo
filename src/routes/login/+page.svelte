@@ -10,14 +10,14 @@
 </script>
 
 <svelte:head>
-	<title>Sign in, Studio 6A</title>
+	<title>Sign in, Trebble</title>
 </svelte:head>
 
 <main class="wrap">
 	<div class="panel">
 		<a class="brand" href="/">
-			<span class="mark" aria-hidden="true">6A</span>
-			<span>Studio 6A</span>
+			<span class="mark" aria-hidden="true">TR</span>
+			<span>Trebble</span>
 		</a>
 
 		<h1>{mode === 'login' ? 'Welcome back' : 'Set up your account'}</h1>

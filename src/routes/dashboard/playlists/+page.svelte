@@ -17,7 +17,7 @@
 	const totalTracks = $derived(data.playlists.reduce((n, p) => n + (p.trackCount || 0), 0));
 </script>
 
-<svelte:head><title>Playlists, Studio 6A</title></svelte:head>
+<svelte:head><title>Playlists, Trebble</title></svelte:head>
 
 {#if feature}
 	<section
@@ -94,7 +94,7 @@
 	{:else}
 		<EmptyState
 			title="Connect Spotify to see your playlists"
-			description="Studio 6A reads your playlists with your permission and never changes them."
+			description="Trebble reads your playlists with your permission and never changes them."
 			icon="▤"
 		>
 			{#snippet action()}

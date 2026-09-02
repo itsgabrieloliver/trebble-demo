@@ -21,7 +21,7 @@
 	}
 </script>
 
-<svelte:head><title>Profile, Studio 6A</title></svelte:head>
+<svelte:head><title>Profile, Trebble</title></svelte:head>
 
 <section class="cover">
 	<div class="cover-inner">

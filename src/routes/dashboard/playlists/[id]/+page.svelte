@@ -55,7 +55,7 @@
 	}
 </script>
 
-<svelte:head><title>{data.playlist?.name || 'Playlist'}, Studio 6A</title></svelte:head>
+<svelte:head><title>{data.playlist?.name || 'Playlist'}, Trebble</title></svelte:head>
 
 <section class="hero" style={`--hero-art: url('${cover}')`}>
 	<div class="hero-inner">

@@ -73,7 +73,7 @@
 	}
 </script>
 
-<svelte:head><title>Library, Studio 6A</title></svelte:head>
+<svelte:head><title>Library, Trebble</title></svelte:head>
 
 <header class="page-head">
 	<div class="head-row">

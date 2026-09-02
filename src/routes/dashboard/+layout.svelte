@@ -43,8 +43,8 @@
 <div class="shell">
 	<aside class="rail">
 		<a class="brand" href="/">
-			<span class="mark" aria-hidden="true">6A</span>
-			<span class="brand-name">Studio 6A</span>
+			<span class="mark" aria-hidden="true">TR</span>
+			<span class="brand-name">Trebble</span>
 		</a>
 
 		<nav aria-label="Dashboard">

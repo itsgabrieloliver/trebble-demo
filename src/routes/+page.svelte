@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-	<title>Studio 6A, listen together</title>
+	<title>Trebble, listen together</title>
 	<meta
 		name="description"
 		content="Connect Spotify, share the tracks you are actually playing, and compare listening with the people you trust for music."
@@ -24,8 +24,8 @@
 <header class="top">
 	<div class="container bar">
 		<a class="brand" href="/">
-			<span class="mark" aria-hidden="true">6A</span>
-			<span>Studio 6A</span>
+			<span class="mark" aria-hidden="true">TR</span>
+			<span>Trebble</span>
 		</a>
 		<nav class="links">
 			<a href="#how">How it works</a>
@@ -155,7 +155,7 @@
 
 <footer class="foot">
 	<div class="container foot-inner">
-		<span class="meta">Studio 6A</span>
+		<span class="meta">Trebble</span>
 		<span class="meta">Spotify is a trademark of Spotify AB.</span>
 	</div>
 </footer>
